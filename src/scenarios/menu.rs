@@ -22,22 +22,23 @@ pub struct Menu {
     over_exit: bool,
 }
 
-impl Scene for Menu {
-    type Scenario = Self;
-
-    fn new() -> Self {
+impl Menu {
+    pub fn new() -> Self {
         Self {
             textures: HashMap::new(),
             over_play: false,
             over_exit: false,
         }
     }
+}
 
-    fn on_unload(&mut self, _renderer: &mut Renderer) {
+impl Scene for Menu {
+    fn on_unload(&mut self, _renderer: &mut Renderer) -> Loop {
         println!("Menu unloaded");
+        Loop::Continue
     }
 
-    fn on_load(&mut self, renderer: &mut Renderer) {
+    fn on_load(&mut self, renderer: &mut Renderer) -> Loop {
         let ttf_context = ttf::init().unwrap();
         let mut font = ttf_context
             .load_font(Path::new("./assets/font.ttf"), 128)
@@ -88,11 +89,11 @@ impl Scene for Menu {
             .unwrap();
 
         self.textures.insert("exit".into(), exit_texture);
+
+        Loop::Continue
     }
 
-    fn on_event(&mut self, event: Event, _renderer: &mut Renderer) -> Loop<T>
-        where <T as Scene>::Scenario: Scene
-    {
+    fn on_event(&mut self, event: Event, _renderer: &mut Renderer) -> Loop {
         match event {
             Event::Quit { .. } => Loop::Break,
             Event::MouseMotion { x, y, .. } => {
@@ -116,7 +117,8 @@ impl Scene for Menu {
                 } else if helpers::point_colliding_rect(x,
                                                         y,
                                                         &helpers::rect_centered(200, 60, 0, 30)) {
-                    Loop::GoToScene(game::Game::new())
+
+                    Loop::GoToScene("game".into())
                 } else {
                     Loop::Continue
                 }
@@ -125,7 +127,7 @@ impl Scene for Menu {
         }
     }
 
-    fn on_tick(&mut self, renderer: &mut Renderer) -> Loop<Self> {
+    fn on_tick(&mut self, renderer: &mut Renderer) -> Loop {
         renderer.set_draw_color(Color::RGB(255, 255, 255));
         renderer.clear();
 
