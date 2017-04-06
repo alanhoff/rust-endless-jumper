@@ -90,7 +90,9 @@ impl Scene for Menu {
         self.textures.insert("exit".into(), exit_texture);
     }
 
-    fn on_event(&mut self, event: Event, _renderer: &mut Renderer) -> Loop<T> {
+    fn on_event(&mut self, event: Event, _renderer: &mut Renderer) -> Loop<T>
+        where <T as Scene>::Scenario: Scene
+    {
         match event {
             Event::Quit { .. } => Loop::Break,
             Event::MouseMotion { x, y, .. } => {
