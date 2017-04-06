@@ -7,8 +7,7 @@ use self::sdl2::event::Event;
 use self::sdl2::render::Renderer;
 use self::sdl2::render::Texture;
 
-use engine::Scene;
-use engine::Loop;
+use engine::{Scene, Context, Loop};
 
 pub struct Game {
     textures: HashMap<String, Texture>,
@@ -21,27 +20,27 @@ impl Game {
 }
 
 impl Scene for Game {
-    fn on_unload(&mut self, _renderer: &mut Renderer) -> Loop {
+    fn on_unload(&mut self, _ctx: &mut Context) -> Loop {
         println!("Game unloaded");
         Loop::Continue
     }
 
-    fn on_load(&mut self, renderer: &mut Renderer) -> Loop {
+    fn on_load(&mut self, ctx: &mut Context) -> Loop {
         println!("Game loaded");
         Loop::Continue
     }
 
-    fn on_event(&mut self, event: Event, _renderer: &mut Renderer) -> Loop {
+    fn on_event(&mut self, event: Event, _ctx: &mut Context) -> Loop {
         match event {
             Event::Quit { .. } => Loop::Break,
             _ => Loop::Continue,
         }
     }
 
-    fn on_tick(&mut self, renderer: &mut Renderer) -> Loop {
-        renderer.set_draw_color(Color::RGB(255, 255, 255));
-        renderer.clear();
-        renderer.present();
+    fn on_tick(&mut self, ctx: &mut Context) -> Loop {
+        ctx.renderer.set_draw_color(Color::RGB(255, 255, 255));
+        ctx.renderer.clear();
+        ctx.renderer.present();
 
         Loop::Continue
     }

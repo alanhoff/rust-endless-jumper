@@ -6,6 +6,7 @@ use self::sdl2::event::Event;
 use self::sdl2::render::Renderer;
 use self::sdl2::EventPump;
 use self::sdl2::image::{INIT_PNG, INIT_JPG};
+use self::sdl2::audio::AudioCallback;
 
 use config;
 
@@ -15,10 +16,34 @@ pub enum Loop {
     GoToScene(String),
 }
 
+pub struct Sound {
+    data: Vec<u8>,
+    volume: f32,
+    pos: usize,
+}
+
+impl AudioCallback for Sound {
+    type Channel = u8;
+
+    fn callback(&mut self, out: &mut [u8]) {
+        for dst in out.iter_mut() {
+            *dst = (*self.data.get(self.pos).unwrap_or(&0) as f32 * self.volume) as u8;
+            self.pos += 1;
+        }
+    }
+}
+
+pub struct Context {
+    pub sdl2_context: &'static mut sdl2::Sdl,
+    pub renderer: &'static mut Renderer<'static>,
+}
+
+
 pub struct Engine {
     scenarios: HashMap<String, Box<Scene>>,
     renderer: Renderer<'static>,
     event_pump: EventPump,
+    sdl2_context: sdl2::Sdl,
 }
 
 impl Engine {
@@ -48,6 +73,7 @@ impl Engine {
             event_pump: event_pump,
             renderer: renderer,
             scenarios: HashMap::new(),
+            sdl2_context: sdl_context,
         }
     }
 
@@ -59,11 +85,15 @@ impl Engine {
 
         'running: loop {
             let mut scene = self.scenarios.get_mut(&scene_name).unwrap();
+            let mut context = Context {
+                sdl2_context: &mut self.sdl2_context,
+                renderer: &mut self.renderer,
+            };
 
             if should_load {
                 should_load = false;
 
-                match scene.on_load(&mut self.renderer) {
+                match scene.on_load(&mut context) {
                     Loop::Break => break 'running,
                     Loop::GoToScene(name) => {
                         scene_name = name;
@@ -75,7 +105,7 @@ impl Engine {
             }
 
             for event in self.event_pump.poll_iter() {
-                match scene.on_event(event, &mut self.renderer) {
+                match scene.on_event(event, &mut context) {
                     Loop::Break => break 'running,
                     Loop::GoToScene(name) => {
                         scene_name = name;
@@ -86,7 +116,7 @@ impl Engine {
                 }
             }
 
-            match scene.on_tick(&mut self.renderer) {
+            match scene.on_tick(&mut context) {
                 Loop::Break => break 'running,
                 Loop::GoToScene(name) => {
                     scene_name = name;
@@ -100,7 +130,7 @@ impl Engine {
             if should_unload {
                 should_unload = false;
 
-                match scene.on_load(&mut self.renderer) {
+                match scene.on_load(&mut context) {
                     Loop::Break => break 'running,
                     Loop::GoToScene(name) => {
                         scene_name = name;
@@ -111,22 +141,27 @@ impl Engine {
             }
         }
 
+        let mut context = Context {
+            sdl2_context: &mut self.sdl2_context,
+            renderer: &mut self.renderer,
+        };
+
         let mut scene = self.scenarios.get_mut(&scene_name).unwrap();
-        scene.on_unload(&mut self.renderer);
+        scene.on_unload(&mut context);
     }
 }
 
 pub trait Scene {
-    fn on_load(&mut self, &mut Renderer<'static>) -> Loop {
+    fn on_load(&mut self, &mut Context) -> Loop {
         Loop::Continue
     }
-    fn on_unload(&mut self, &mut Renderer<'static>) -> Loop {
+    fn on_unload(&mut self, &mut Context) -> Loop {
         Loop::Continue
     }
-    fn on_event(&mut self, Event, &mut Renderer<'static>) -> Loop {
+    fn on_event(&mut self, Event, &mut Context) -> Loop {
         Loop::Continue
     }
-    fn on_tick(&mut self, &mut Renderer<'static>) -> Loop {
+    fn on_tick(&mut self, &mut Context) -> Loop {
         Loop::Continue
     }
 }

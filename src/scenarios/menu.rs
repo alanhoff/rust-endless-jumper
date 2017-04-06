@@ -9,11 +9,11 @@ use self::sdl2::keyboard::Keycode;
 use self::sdl2::render::Renderer;
 use self::sdl2::ttf;
 use self::sdl2::render::Texture;
+use self::sdl2::audio::{AudioCallback, AudioSpecDesired, AudioSpecWAV, AudioCVT};
 
 use scenarios::game;
 use helpers;
-use engine::Scene;
-use engine::Loop;
+use engine::{Scene, Loop, Context};
 use config;
 
 pub struct Menu {
@@ -33,12 +33,12 @@ impl Menu {
 }
 
 impl Scene for Menu {
-    fn on_unload(&mut self, _renderer: &mut Renderer) -> Loop {
+    fn on_unload(&mut self, _ctx: &mut Context) -> Loop {
         println!("Menu unloaded");
         Loop::Continue
     }
 
-    fn on_load(&mut self, renderer: &mut Renderer) -> Loop {
+    fn on_load(&mut self, ctx: &mut Context) -> Loop {
         let ttf_context = ttf::init().unwrap();
         let mut font = ttf_context
             .load_font(Path::new("./assets/font.ttf"), 128)
@@ -50,7 +50,7 @@ impl Scene for Menu {
             .blended(Color::RGBA(0, 0, 0, 255))
             .unwrap();
 
-        let title_texture = renderer
+        let title_texture = ctx.renderer
             .create_texture_from_surface(&title_surface)
             .unwrap();
 
@@ -63,7 +63,7 @@ impl Scene for Menu {
             .blended(Color::RGBA(0, 0, 0, 255))
             .unwrap();
 
-        let description_texture = renderer
+        let description_texture = ctx.renderer
             .create_texture_from_surface(&description_surface)
             .unwrap();
 
@@ -74,7 +74,7 @@ impl Scene for Menu {
             .blended(Color::RGBA(0, 0, 0, 255))
             .unwrap();
 
-        let play_texture = renderer
+        let play_texture = ctx.renderer
             .create_texture_from_surface(&play_surface)
             .unwrap();
 
@@ -84,7 +84,7 @@ impl Scene for Menu {
             .blended(Color::RGBA(0, 0, 0, 255))
             .unwrap();
 
-        let exit_texture = renderer
+        let exit_texture = ctx.renderer
             .create_texture_from_surface(&exit_surface)
             .unwrap();
 
@@ -93,7 +93,7 @@ impl Scene for Menu {
         Loop::Continue
     }
 
-    fn on_event(&mut self, event: Event, _renderer: &mut Renderer) -> Loop {
+    fn on_event(&mut self, event: Event, _ctx: &mut Context) -> Loop {
         match event {
             Event::Quit { .. } => Loop::Break,
             Event::MouseMotion { x, y, .. } => {
@@ -127,16 +127,16 @@ impl Scene for Menu {
         }
     }
 
-    fn on_tick(&mut self, renderer: &mut Renderer) -> Loop {
-        renderer.set_draw_color(Color::RGB(255, 255, 255));
-        renderer.clear();
+    fn on_tick(&mut self, ctx: &mut Context) -> Loop {
+        ctx.renderer.set_draw_color(Color::RGB(255, 255, 255));
+        ctx.renderer.clear();
 
         // Renders the title
         {
             let mut title = self.textures.get_mut("title").unwrap();
             let title_position = helpers::rect_centered(400, 50, 0, -100);
 
-            renderer
+            ctx.renderer
                 .copy(&mut title, None, Some(title_position))
                 .unwrap();
         }
@@ -146,7 +146,7 @@ impl Scene for Menu {
             let mut description = self.textures.get_mut("description").unwrap();
             let description_position = helpers::rect_centered(200, 20, 0, -60);
 
-            renderer
+            ctx.renderer
                 .copy(&mut description, None, Some(description_position))
                 .unwrap();
         }
@@ -154,23 +154,23 @@ impl Scene for Menu {
         // Renders the play button
         {
             match self.over_play {
-                true => renderer.set_draw_color(Color::RGB(255, 0, 0)),
-                false => renderer.set_draw_color(Color::RGB(0, 0, 0)),
+                true => ctx.renderer.set_draw_color(Color::RGB(255, 0, 0)),
+                false => ctx.renderer.set_draw_color(Color::RGB(0, 0, 0)),
             }
 
-            renderer
+            ctx.renderer
                 .fill_rect(helpers::rect_centered(200, 60, 0, 30))
                 .unwrap();
 
-            renderer.set_draw_color(Color::RGB(255, 255, 255));
-            renderer
+            ctx.renderer.set_draw_color(Color::RGB(255, 255, 255));
+            ctx.renderer
                 .fill_rect(helpers::rect_centered(190, 50, 0, 30))
                 .unwrap();
 
             let mut play = self.textures.get_mut("play").unwrap();
             let play_position = helpers::rect_centered(100, 20, 0, 30);
 
-            renderer
+            ctx.renderer
                 .copy(&mut play, None, Some(play_position))
                 .unwrap();
         }
@@ -178,28 +178,28 @@ impl Scene for Menu {
         // Renders the exit button
         {
             match self.over_exit {
-                true => renderer.set_draw_color(Color::RGB(255, 0, 0)),
-                false => renderer.set_draw_color(Color::RGB(0, 0, 0)),
+                true => ctx.renderer.set_draw_color(Color::RGB(255, 0, 0)),
+                false => ctx.renderer.set_draw_color(Color::RGB(0, 0, 0)),
             }
 
-            renderer
+            ctx.renderer
                 .fill_rect(helpers::rect_centered(200, 60, 0, 100))
                 .unwrap();
 
-            renderer.set_draw_color(Color::RGB(255, 255, 255));
-            renderer
+            ctx.renderer.set_draw_color(Color::RGB(255, 255, 255));
+            ctx.renderer
                 .fill_rect(helpers::rect_centered(190, 50, 0, 100))
                 .unwrap();
 
             let mut exit = self.textures.get_mut("exit").unwrap();
             let exit_position = helpers::rect_centered(100, 20, 0, 100);
 
-            renderer
+            ctx.renderer
                 .copy(&mut exit, None, Some(exit_position))
                 .unwrap();
         }
 
-        renderer.present();
+        ctx.renderer.present();
         Loop::Continue
     }
 }
