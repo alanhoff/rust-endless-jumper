@@ -2,6 +2,8 @@ extern crate sdl2;
 
 use std::path::Path;
 use std::collections::HashMap;
+use std::thread::sleep;
+use std::time::Duration;
 
 use self::sdl2::pixels::Color;
 use self::sdl2::event::Event;
@@ -9,7 +11,7 @@ use self::sdl2::keyboard::Keycode;
 use self::sdl2::render::Renderer;
 use self::sdl2::ttf;
 use self::sdl2::render::Texture;
-use self::sdl2::audio::{AudioCallback, AudioSpecDesired, AudioSpecWAV, AudioCVT};
+use self::sdl2::mixer::{Music, Chunk, channel};
 
 use scenarios::game;
 use helpers;
@@ -20,6 +22,8 @@ pub struct Menu {
     textures: HashMap<String, Texture>,
     over_play: bool,
     over_exit: bool,
+    music: Chunk,
+    menu: Chunk,
 }
 
 impl Menu {
@@ -28,6 +32,8 @@ impl Menu {
             textures: HashMap::new(),
             over_play: false,
             over_exit: false,
+            music: Chunk::from_file(Path::new("./assets/music.wav")).unwrap(),
+            menu: Chunk::from_file(Path::new("./assets/menu.wav")).unwrap(),
         }
     }
 }
@@ -38,11 +44,14 @@ impl Scene for Menu {
         Loop::Continue
     }
 
-    fn on_load(&mut self, ctx: &mut Context) -> Loop {
+    fn on_load(&mut self, mut ctx: &mut Context) -> Loop {
+        channel(0).play(&self.music, -1);
+
         let ttf_context = ttf::init().unwrap();
         let mut font = ttf_context
             .load_font(Path::new("./assets/font.ttf"), 128)
             .unwrap();
+
 
         font.set_style(ttf::STYLE_BOLD);
 
@@ -98,12 +107,20 @@ impl Scene for Menu {
             Event::Quit { .. } => Loop::Break,
             Event::MouseMotion { x, y, .. } => {
                 if helpers::point_colliding_rect(x, y, &helpers::rect_centered(200, 60, 0, 30)) {
+                    if !self.over_play {
+                        channel(1).play(&self.menu, 0);
+                    }
+
                     self.over_play = true;
                 } else {
                     self.over_play = false;
                 }
 
                 if helpers::point_colliding_rect(x, y, &helpers::rect_centered(200, 60, 0, 100)) {
+                    if !self.over_exit {
+                        channel(1).play(&self.menu, 0);
+                    }
+
                     self.over_exit = true;
                 } else {
                     self.over_exit = false;

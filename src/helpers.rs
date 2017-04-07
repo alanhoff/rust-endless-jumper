@@ -1,5 +1,6 @@
 extern crate sdl2;
 
+use std::time::Duration;
 use self::sdl2::rect::Rect;
 use config;
 
@@ -21,4 +22,11 @@ pub fn point_colliding_rect(x: i32, y: i32, rect: &Rect) -> bool {
     } else {
         false
     }
+}
+
+pub fn get_milliseconds(duration: &Duration) -> u64 {
+    let mut total_nanosecs = duration.as_secs() * 1_000_000_000;
+    total_nanosecs += duration.subsec_nanos() as u64;
+
+    total_nanosecs / 1_000_000
 }

@@ -1,13 +1,16 @@
 extern crate sdl2;
 
 use std::collections::HashMap;
+use std::time::Instant;
+use std::thread;
 
 use self::sdl2::event::Event;
 use self::sdl2::render::Renderer;
 use self::sdl2::EventPump;
 use self::sdl2::image::{INIT_PNG, INIT_JPG};
-use self::sdl2::audio::AudioCallback;
+use self::sdl2::mixer::{INIT_FLAC, AUDIO_S16LSB};
 
+use helpers;
 use config;
 
 pub enum Loop {
@@ -16,34 +19,17 @@ pub enum Loop {
     GoToScene(String),
 }
 
-pub struct Sound {
-    data: Vec<u8>,
-    volume: f32,
-    pos: usize,
-}
-
-impl AudioCallback for Sound {
-    type Channel = u8;
-
-    fn callback(&mut self, out: &mut [u8]) {
-        for dst in out.iter_mut() {
-            *dst = (*self.data.get(self.pos).unwrap_or(&0) as f32 * self.volume) as u8;
-            self.pos += 1;
-        }
-    }
-}
-
 pub struct Context {
-    pub sdl2_context: &'static mut sdl2::Sdl,
-    pub renderer: &'static mut Renderer<'static>,
+    pub sdl2_context: sdl2::Sdl,
+    pub renderer: Renderer<'static>,
+    pub timer: Instant,
 }
 
 
 pub struct Engine {
     scenarios: HashMap<String, Box<Scene>>,
-    renderer: Renderer<'static>,
     event_pump: EventPump,
-    sdl2_context: sdl2::Sdl,
+    context: Context,
 }
 
 impl Engine {
@@ -69,32 +55,50 @@ impl Engine {
         let renderer = window.renderer().build().unwrap();
         let event_pump = sdl_context.event_pump().unwrap();
 
+        // Setup the mixer
+        sdl_context.audio().unwrap();
+        sdl2::mixer::init(INIT_FLAC).unwrap();
+        sdl2::mixer::open_audio(44100, AUDIO_S16LSB, 2, 1024).unwrap();
+        sdl2::mixer::allocate_channels(16);
+
+
         Engine {
             event_pump: event_pump,
-            renderer: renderer,
             scenarios: HashMap::new(),
-            sdl2_context: sdl_context,
+            context: Context {
+                renderer: renderer,
+                sdl2_context: sdl_context,
+                timer: Instant::now(),
+            },
         }
     }
 
     pub fn run(&mut self, inital_scene: String) {
+        // Make sure we render 60fps max
+
         let mut scene_name = inital_scene;
 
         let mut should_load = true;
-        let mut should_unload = true;
+        let mut should_unload = false;
+        let mut timer = Instant::now();
 
         'running: loop {
+            let elapsed = helpers::get_milliseconds(&timer.elapsed());
+            if (elapsed < 15) {
+                thread::sleep_ms((15 - elapsed) as u32);
+            }
+
+            timer = Instant::now();
             let mut scene = self.scenarios.get_mut(&scene_name).unwrap();
-            let mut context = Context {
-                sdl2_context: &mut self.sdl2_context,
-                renderer: &mut self.renderer,
-            };
 
             if should_load {
                 should_load = false;
 
-                match scene.on_load(&mut context) {
-                    Loop::Break => break 'running,
+                match scene.on_load(&mut self.context) {
+                    Loop::Break => {
+                        should_unload = true;
+                        break 'running;
+                    }
                     Loop::GoToScene(name) => {
                         scene_name = name;
                         should_load = true;
@@ -105,8 +109,11 @@ impl Engine {
             }
 
             for event in self.event_pump.poll_iter() {
-                match scene.on_event(event, &mut context) {
-                    Loop::Break => break 'running,
+                match scene.on_event(event, &mut self.context) {
+                    Loop::Break => {
+                        should_unload = true;
+                        break 'running;
+                    }
                     Loop::GoToScene(name) => {
                         scene_name = name;
                         should_load = true;
@@ -116,8 +123,11 @@ impl Engine {
                 }
             }
 
-            match scene.on_tick(&mut context) {
-                Loop::Break => break 'running,
+            match scene.on_tick(&mut self.context) {
+                Loop::Break => {
+                    should_unload = true;
+                    break 'running;
+                }
                 Loop::GoToScene(name) => {
                     scene_name = name;
                     should_load = true;
@@ -130,8 +140,11 @@ impl Engine {
             if should_unload {
                 should_unload = false;
 
-                match scene.on_load(&mut context) {
-                    Loop::Break => break 'running,
+                match scene.on_unload(&mut self.context) {
+                    Loop::Break => {
+                        should_unload = true;
+                        break 'running;
+                    }
                     Loop::GoToScene(name) => {
                         scene_name = name;
                         should_load = true;
@@ -141,13 +154,8 @@ impl Engine {
             }
         }
 
-        let mut context = Context {
-            sdl2_context: &mut self.sdl2_context,
-            renderer: &mut self.renderer,
-        };
-
         let mut scene = self.scenarios.get_mut(&scene_name).unwrap();
-        scene.on_unload(&mut context);
+        scene.on_unload(&mut self.context);
     }
 }
 
