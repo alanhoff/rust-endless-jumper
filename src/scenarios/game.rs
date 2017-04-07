@@ -20,6 +20,7 @@ const MONTAINS_SCALE: u32 = 3;
 const GROUND_SCALE: u32 = 2;
 const PLAYER_SCALE: i32 = 3;
 const GRAVITY: f32 = 0.5;
+const ROCK_SCALE: i32 = 2;
 
 pub struct Game {
     textures: HashMap<String, Texture>,
@@ -105,6 +106,37 @@ impl Game {
                      true,
                      false)
             .unwrap();
+    }
+
+    fn draw_rock(&self, ctx: &mut Context) {
+        let rock = self.textures.get("rocks".into()).unwrap();
+        let sprite_row = 0i32;
+        let sprite_column = 3i32;
+        let image_width = 32i32;
+        let image_height = 32i32;
+        let millis = helpers::get_milliseconds(&ctx.timer.elapsed()) as i32;
+        let x = ((millis % 1560) as i32 * (800 + image_width) / 1560) as i32;
+        let sprite = Rect::new(sprite_column * image_width,
+                               sprite_row * image_height,
+                               image_width as u32,
+                               image_height as u32);
+
+
+        for n in 0..6 {
+            let destination = Rect::new(x - image_width,
+                                        480i32 - (n * (image_height - 15)),
+                                        (image_width * ROCK_SCALE) as u32,
+                                        (image_height * ROCK_SCALE) as u32);
+            ctx.renderer
+                .copy_ex(&rock,
+                         Some(sprite),
+                         Some(destination),
+                         0.00,
+                         None,
+                         true,
+                         false)
+                .unwrap();
+        }
     }
 
     fn draw_jump(&self, ctx: &mut Context) {
@@ -212,6 +244,12 @@ impl Scene for Game {
                     ctx.renderer
                         .load_texture(Path::new("./assets/player.png"))
                         .unwrap());
+
+        self.textures
+            .insert("rocks".into(),
+                    ctx.renderer
+                        .load_texture(Path::new("./assets/rocks.png"))
+                        .unwrap());
         Loop::Continue
     }
 
@@ -244,13 +282,11 @@ impl Scene for Game {
         ctx.renderer.clear();
 
 
-
-
-
         self.physics(&mut ctx);
         self.draw_montains(&mut ctx);
         self.draw_forest(&mut ctx);
         self.draw_ground(&mut ctx);
+        self.draw_rock(&mut ctx);
 
         if (self.jumping) {
             self.draw_jump(&mut ctx);

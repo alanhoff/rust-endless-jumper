@@ -61,7 +61,6 @@ impl Engine {
         sdl2::mixer::open_audio(44100, AUDIO_S16LSB, 2, 1024).unwrap();
         sdl2::mixer::allocate_channels(16);
 
-
         Engine {
             event_pump: event_pump,
             scenarios: HashMap::new(),
