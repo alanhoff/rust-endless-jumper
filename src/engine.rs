@@ -52,7 +52,7 @@ impl Engine {
 
         sdl2::image::init(INIT_PNG | INIT_JPG).unwrap();
 
-        let renderer = window.renderer().build().unwrap();
+        let renderer = window.renderer().accelerated().build().unwrap();
         let event_pump = sdl_context.event_pump().unwrap();
 
         // Setup the mixer

@@ -39,13 +39,8 @@ impl Menu {
 }
 
 impl Scene for Menu {
-    fn on_unload(&mut self, _ctx: &mut Context) -> Loop {
-        println!("Menu unloaded");
-        Loop::Continue
-    }
-
     fn on_load(&mut self, mut ctx: &mut Context) -> Loop {
-        channel(0).play(&self.music, -1);
+        channel(0).play(&self.music, -1).unwrap();
 
         let ttf_context = ttf::init().unwrap();
         let mut font = ttf_context
@@ -108,7 +103,7 @@ impl Scene for Menu {
             Event::MouseMotion { x, y, .. } => {
                 if helpers::point_colliding_rect(x, y, &helpers::rect_centered(200, 60, 0, 30)) {
                     if !self.over_play {
-                        channel(1).play(&self.menu, 0);
+                        channel(1).play(&self.menu, 0).unwrap();
                     }
 
                     self.over_play = true;
@@ -118,7 +113,7 @@ impl Scene for Menu {
 
                 if helpers::point_colliding_rect(x, y, &helpers::rect_centered(200, 60, 0, 100)) {
                     if !self.over_exit {
-                        channel(1).play(&self.menu, 0);
+                        channel(1).play(&self.menu, 0).unwrap();
                     }
 
                     self.over_exit = true;
