@@ -1,4 +1,5 @@
 extern crate sdl2;
+extern crate rand;
 
 use std::collections::HashMap;
 use std::time::Instant;
@@ -9,6 +10,7 @@ use self::sdl2::render::Renderer;
 use self::sdl2::EventPump;
 use self::sdl2::image::{INIT_PNG, INIT_JPG};
 use self::sdl2::mixer::{INIT_FLAC, AUDIO_S16LSB};
+use self::rand::ThreadRng;
 
 use helpers;
 use config;
@@ -23,6 +25,8 @@ pub struct Context {
     pub sdl2_context: sdl2::Sdl,
     pub renderer: Renderer<'static>,
     pub timer: Instant,
+    pub thread_rng: ThreadRng,
+    pub ttf_context: sdl2::ttf::Sdl2TtfContext,
 }
 
 
@@ -40,6 +44,7 @@ impl Engine {
     pub fn new() -> Self {
         let sdl_context = sdl2::init().unwrap();
         let video_subsystem = sdl_context.video().unwrap();
+        let ttf_context = sdl2::ttf::init().unwrap();
 
         let window = video_subsystem
             .window(&format!("{} v{}", config::TITLE, config::VERSION),
@@ -52,7 +57,13 @@ impl Engine {
 
         sdl2::image::init(INIT_PNG | INIT_JPG).unwrap();
 
-        let renderer = window.renderer().accelerated().build().unwrap();
+        let renderer = window
+            .renderer()
+            .accelerated()
+            .present_vsync()
+            .build()
+            .unwrap();
+
         let event_pump = sdl_context.event_pump().unwrap();
 
         // Setup the mixer
@@ -68,13 +79,13 @@ impl Engine {
                 renderer: renderer,
                 sdl2_context: sdl_context,
                 timer: Instant::now(),
+                thread_rng: rand::thread_rng(),
+                ttf_context: ttf_context,
             },
         }
     }
 
     pub fn run(&mut self, inital_scene: String) {
-        // Make sure we render 60fps max
-
         let mut scene_name = inital_scene;
 
         let mut should_load = true;
