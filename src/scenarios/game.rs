@@ -32,7 +32,7 @@ struct Obstacle {
     pub pending_point: bool,
 }
 
-pub struct Game {
+pub struct Game<'a> {
     textures: HashMap<String, Texture>,
     timers: HashMap<String, Instant>,
     velocity_y: f32,
@@ -41,10 +41,10 @@ pub struct Game {
     released: bool,
     jump: Chunk,
     obstacles: Vec<Obstacle>,
-    fonts: HashMap<String, Font<'static, 'static>>,
+    fonts: HashMap<String, Font<'a, 'static>>,
 }
 
-impl Game {
+impl<'a> Game<'a> {
     pub fn new() -> Self {
         Self {
             textures: HashMap::new(),
@@ -285,12 +285,12 @@ impl Game {
     }
 }
 
-impl Scene for Game {
+impl<'a> Scene for Game<'a> {
     fn on_unload(&mut self, _ctx: &mut Context) -> Loop {
         Loop::Continue
     }
 
-    fn on_load<'a, 'ctx: 'a>(&'a mut self, ctx: &'ctx mut Context) -> Loop {
+    fn on_load<'ctx>(&'ctx mut self, ctx: &'ctx mut Context) -> Loop {
         self.textures
             .insert("background".into(),
                     ctx.renderer
@@ -321,7 +321,7 @@ impl Scene for Game {
                         .load_texture(Path::new("./assets/rocks.png"))
                         .unwrap());
 
-        let font: Font<'static, 'static> = ctx.ttf_context
+        let font = ctx.ttf_context
             .load_font(Path::new("./assets/font.ttf"), 128)
             .unwrap();
 
