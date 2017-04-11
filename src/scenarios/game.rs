@@ -290,7 +290,7 @@ impl Scene for Game {
         Loop::Continue
     }
 
-    fn on_load(&mut self, ctx: &mut Context) -> Loop {
+    fn on_load<'a, 'ctx: 'a>(&'a mut self, ctx: &'ctx mut Context) -> Loop {
         self.textures
             .insert("background".into(),
                     ctx.renderer

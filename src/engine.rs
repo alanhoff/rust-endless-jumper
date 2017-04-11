@@ -170,7 +170,7 @@ impl Engine {
 }
 
 pub trait Scene {
-    fn on_load(&mut self, &mut Context) -> Loop {
+    fn on_load<'a, 'ctx: 'a>(&'a mut self, &'ctx mut Context) -> Loop {
         Loop::Continue
     }
     fn on_unload(&mut self, &mut Context) -> Loop {
