@@ -38,8 +38,8 @@ impl Menu {
     }
 }
 
-impl Scene for Menu {
-    fn on_load<'ctx>(&'ctx mut self, mut ctx: &'ctx mut Context) -> Loop {
+impl<'a> Scene<'a> for Menu {
+    fn on_load(&mut self, mut ctx: &'a mut Context) -> Loop {
         channel(0).play(&self.music, -1).unwrap();
 
         let ttf_context = ttf::init().unwrap();

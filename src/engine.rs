@@ -21,23 +21,23 @@ pub enum Loop {
     GoToScene(String),
 }
 
-pub struct Context {
+pub struct Context<'a> {
     pub sdl2_context: sdl2::Sdl,
-    pub renderer: Renderer<'static>,
+    pub renderer: Renderer<'a>,
     pub timer: Instant,
     pub thread_rng: ThreadRng,
     pub ttf_context: sdl2::ttf::Sdl2TtfContext,
 }
 
 
-pub struct Engine {
-    scenarios: HashMap<String, Box<Scene>>,
+pub struct Engine<'a> {
+    scenarios: HashMap<String, Box<Scene<'a>>>,
     event_pump: EventPump,
-    context: Context,
+    context: Context<'a>,
 }
 
-impl Engine {
-    pub fn add_scenario<P: Scene + 'static>(&mut self, name: String, scene: P) {
+impl<'a> Engine<'a> {
+    pub fn add_scenario<P: Scene<'a>>(&mut self, name: String, scene: P) {
         self.scenarios.insert(name, Box::new(scene));
     }
 
@@ -85,7 +85,7 @@ impl Engine {
         }
     }
 
-    pub fn run(&mut self, inital_scene: String) {
+    pub fn run(&'a mut self, inital_scene: String) {
         let mut scene_name = inital_scene;
 
         let mut should_load = true;
@@ -169,8 +169,8 @@ impl Engine {
     }
 }
 
-pub trait Scene {
-    fn on_load<'ctx>(&'ctx mut self, &'ctx mut Context) -> Loop {
+pub trait Scene<'a> {
+    fn on_load(&mut self, &'a mut Context) -> Loop {
         Loop::Continue
     }
     fn on_unload(&mut self, &mut Context) -> Loop {

@@ -285,12 +285,12 @@ impl<'a> Game<'a> {
     }
 }
 
-impl<'a> Scene for Game<'a> {
+impl<'a> Scene<'a> for Game<'a> {
     fn on_unload(&mut self, _ctx: &mut Context) -> Loop {
         Loop::Continue
     }
 
-    fn on_load<'ctx>(&'ctx mut self, ctx: &'ctx mut Context) -> Loop {
+    fn on_load(&mut self, ctx: &'a mut Context) -> Loop {
         self.textures
             .insert("background".into(),
                     ctx.renderer
