@@ -2,18 +2,13 @@ extern crate sdl2;
 
 use std::path::Path;
 use std::collections::HashMap;
-use std::thread::sleep;
-use std::time::Duration;
 
 use self::sdl2::pixels::Color;
 use self::sdl2::event::Event;
-use self::sdl2::keyboard::Keycode;
-use self::sdl2::render::Renderer;
 use self::sdl2::ttf;
 use self::sdl2::render::Texture;
-use self::sdl2::mixer::{Music, Chunk, channel};
+use self::sdl2::mixer::{Chunk, channel};
 
-use scenarios::game;
 use helpers;
 use engine::{Scene, Loop, Context};
 use config;
@@ -22,28 +17,26 @@ pub struct Menu {
     textures: HashMap<String, Texture>,
     over_play: bool,
     over_exit: bool,
-    music: Chunk,
-    menu: Chunk,
 }
 
-impl Menu {
-    pub fn new() -> Self {
+impl<'a> Scene for Menu {
+    fn new() -> Self {
         Self {
             textures: HashMap::new(),
             over_play: false,
             over_exit: false,
-            music: Chunk::from_file(Path::new("./assets/music.wav")).unwrap(),
-            menu: Chunk::from_file(Path::new("./assets/menu.wav")).unwrap(),
         }
     }
-}
 
-impl<'a> Scene<'a> for Menu {
-    fn on_load(&mut self, mut ctx: &'a mut Context) -> Loop {
-        channel(0).play(&self.music, -1).unwrap();
+    fn on_load(&mut self, mut ctx: &mut Context) -> Loop {
+        ctx.sounds
+            .insert("music".into(),
+                    Chunk::from_file(Path::new("./assets/music.wav")).unwrap());
+        ctx.sounds
+            .insert("menu".into(),
+                    Chunk::from_file(Path::new("./assets/menu.wav")).unwrap());
 
-        let ttf_context = ttf::init().unwrap();
-        let mut font = ttf_context
+        let mut font = ctx.ttf_context
             .load_font(Path::new("./assets/font.ttf"), 128)
             .unwrap();
 
@@ -94,16 +87,24 @@ impl<'a> Scene<'a> for Menu {
 
         self.textures.insert("exit".into(), exit_texture);
 
+        channel(0)
+            .play(ctx.sounds.get("music").unwrap(), -1)
+            .unwrap();
+
+        ctx.fonts.insert("default".into(), font);
+
         Loop::Continue
     }
 
-    fn on_event(&mut self, event: Event, _ctx: &mut Context) -> Loop {
+    fn on_event(&mut self, event: Event, ctx: &mut Context) -> Loop {
         match event {
             Event::Quit { .. } => Loop::Break,
             Event::MouseMotion { x, y, .. } => {
                 if helpers::point_colliding_rect(x, y, &helpers::rect_centered(200, 60, 0, 30)) {
                     if !self.over_play {
-                        channel(1).play(&self.menu, 0).unwrap();
+                        channel(1)
+                            .play(ctx.sounds.get("menu").unwrap(), 0)
+                            .unwrap();
                     }
 
                     self.over_play = true;
@@ -113,7 +114,9 @@ impl<'a> Scene<'a> for Menu {
 
                 if helpers::point_colliding_rect(x, y, &helpers::rect_centered(200, 60, 0, 100)) {
                     if !self.over_exit {
-                        channel(1).play(&self.menu, 0).unwrap();
+                        channel(1)
+                            .play(ctx.sounds.get("menu").unwrap(), 0)
+                            .unwrap();
                     }
 
                     self.over_exit = true;

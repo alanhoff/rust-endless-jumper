@@ -5,13 +5,14 @@ mod scenarios;
 mod config;
 mod helpers;
 
-use engine::{Engine, Scene};
+use engine::{Engine, Stage};
 use scenarios::menu::Menu;
 use scenarios::game::Game;
 
 pub fn main() {
-    let mut engine = Engine::new();
-    engine.add_scenario("menu".into(), Menu::new());
-    engine.add_scenario("game".into(), Game::new());
-    engine.run("menu".into());
+    let mut stage = Stage::new();
+    stage.add_scene::<Menu>("menu".into());
+    stage.add_scene::<Game>("game".into());
+
+    Engine::run("menu".into(), stage);
 }

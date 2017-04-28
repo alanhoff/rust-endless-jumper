@@ -8,12 +8,11 @@ use std::time::Instant;
 use self::sdl2::rect::Rect;
 use self::sdl2::pixels::Color;
 use self::sdl2::event::Event;
-use self::sdl2::render::Renderer;
 use self::sdl2::render::Texture;
 use self::sdl2::image::LoadTexture;
 use self::sdl2::keyboard::Keycode;
 use self::sdl2::mixer::{Chunk, channel};
-use self::sdl2::ttf::Font;
+use self::sdl2::ttf::STYLE_BOLD;
 
 use helpers;
 use engine::{Scene, Context, Loop};
@@ -32,40 +31,42 @@ struct Obstacle {
     pub pending_point: bool,
 }
 
-pub struct Game<'a> {
+pub struct Game {
     textures: HashMap<String, Texture>,
-    timers: HashMap<String, Instant>,
     velocity_y: f32,
     position_y: f32,
     jumping: bool,
     released: bool,
-    jump: Chunk,
     obstacles: Vec<Obstacle>,
-    fonts: HashMap<String, Font<'a, 'static>>,
+    points: u32,
 }
 
-impl<'a> Game<'a> {
-    pub fn new() -> Self {
-        Self {
-            textures: HashMap::new(),
-            timers: HashMap::new(),
-            velocity_y: 0.00,
-            position_y: 400.00,
-            jumping: false,
-            released: true,
-            jump: Chunk::from_file(Path::new("./assets/jump.wav")).unwrap(),
-            obstacles: Vec::new(),
-            fonts: HashMap::new(),
-        }
+impl Game {
+    fn draw_points(&mut self, ctx: &mut Context) {
+        let mut font = ctx.fonts.get_mut("default".into()).unwrap();
+        font.set_style(STYLE_BOLD);
+
+        let surface = font.render(&format!("Points: {}", self.points))
+            .blended(Color::RGBA(0, 0, 0, 255))
+            .unwrap();
+
+        let mut texture = ctx.renderer
+            .create_texture_from_surface(&surface)
+            .unwrap();
+
+        let destination = Rect::new(10, 10, 100, 20);
+
+        ctx.renderer
+            .copy(&mut texture, None, Some(destination))
+            .unwrap();
     }
 
     fn is_colliding(&mut self) -> bool {
         let mut colliding = false;
 
-        for obstacle in self.obstacles.iter() {
+        for mut obstacle in self.obstacles.iter_mut() {
             let rock_y = 447 + (32 * ROCK_SCALE) - (obstacle.rocks as i32 * (32 - 15));
             let rock_x = obstacle.position_x + (32 * ROCK_SCALE) as f32;
-            let player_x = 500;
             let player_y = self.position_y + (50 * PLAYER_SCALE) as f32;
 
             if self.jumping {
@@ -76,6 +77,11 @@ impl<'a> Game<'a> {
                 if rock_x >= 530.0 && rock_x <= 540.0 && rock_y <= player_y as i32 {
                     colliding = true;
                 }
+            }
+
+            if rock_x > 570.0 && obstacle.pending_point {
+                obstacle.pending_point = false;
+                self.points += 1;
             }
 
         }
@@ -104,10 +110,8 @@ impl<'a> Game<'a> {
         }
     }
 
-    fn physics(&mut self, ctx: &mut Context) {
+    fn physics(&mut self, _ctx: &mut Context) {
         for mut obstacle in self.obstacles.iter_mut() {
-            let millis = helpers::get_milliseconds(&ctx.timer.elapsed());
-
             obstacle.position_x += 8.55;
         }
 
@@ -120,7 +124,7 @@ impl<'a> Game<'a> {
         self.velocity_y += GRAVITY;
         self.position_y += self.velocity_y;
 
-        if (self.position_y > 400.00) {
+        if self.position_y > 400.00 {
             self.jumping = false;
             self.position_y = 400.00;
             self.velocity_y = 0.00;
@@ -130,7 +134,6 @@ impl<'a> Game<'a> {
     fn draw_montains(&self, ctx: &mut Context) {
         let montains_texture = self.textures.get("montains".into()).unwrap();
         let millis = helpers::get_milliseconds(&ctx.timer.elapsed());
-        let window_width = (ctx.renderer.window().unwrap().size().0) as i32;
         let window_height = (ctx.renderer.window().unwrap().size().1) as i32;
         let image_width = (montains_texture.query().width * MONTAINS_SCALE) as i32;
         let image_height = (montains_texture.query().height * MONTAINS_SCALE) as i32;
@@ -157,7 +160,6 @@ impl<'a> Game<'a> {
         let image_width = 46i32;
         let image_height = 50i32;
 
-        let window_width = (ctx.renderer.window().unwrap().size().0) as i32;
         let sprite = Rect::new(sprite_column * image_width,
                                sprite_row * image_height,
                                image_width as u32,
@@ -213,12 +215,11 @@ impl<'a> Game<'a> {
         let player = self.textures.get("player".into()).unwrap();
         let sprite_row = 0i32;
         let sprite_column = {
-            if (self.velocity_y < 0.00) { 6 } else { 7 }
+            if self.velocity_y < 0.00 { 6 } else { 7 }
         } as i32;
         let image_width = 46i32;
         let image_height = 50i32;
 
-        let window_width = (ctx.renderer.window().unwrap().size().0) as i32;
         let sprite = Rect::new(sprite_column * image_width,
                                sprite_row * image_height,
                                image_width as u32,
@@ -243,7 +244,6 @@ impl<'a> Game<'a> {
     fn draw_forest(&self, ctx: &mut Context) {
         let forest_texture = self.textures.get("forest".into()).unwrap();
         let millis = helpers::get_milliseconds(&ctx.timer.elapsed());
-        let window_width = (ctx.renderer.window().unwrap().size().0) as i32;
         let window_height = (ctx.renderer.window().unwrap().size().1) as i32;
         let image_width = (forest_texture.query().width * MONTAINS_SCALE) as i32;
         let image_height = (forest_texture.query().height * MONTAINS_SCALE) as i32;
@@ -265,7 +265,6 @@ impl<'a> Game<'a> {
     fn draw_ground(&self, ctx: &mut Context) {
         let background_texture = self.textures.get("background".into()).unwrap();
         let millis = helpers::get_milliseconds(&ctx.timer.elapsed());
-        let window_width = (ctx.renderer.window().unwrap().size().0) as i32;
         let window_height = (ctx.renderer.window().unwrap().size().1) as i32;
         let image_width = (background_texture.query().width * GROUND_SCALE) as i32;
         let image_height = (background_texture.query().height * GROUND_SCALE) as i32;
@@ -285,12 +284,28 @@ impl<'a> Game<'a> {
     }
 }
 
-impl<'a> Scene<'a> for Game<'a> {
+impl Scene for Game {
+    fn new() -> Self {
+        Self {
+            textures: HashMap::new(),
+            velocity_y: 0.00,
+            position_y: 400.00,
+            jumping: false,
+            released: true,
+            obstacles: Vec::new(),
+            points: 0,
+        }
+    }
+
     fn on_unload(&mut self, _ctx: &mut Context) -> Loop {
         Loop::Continue
     }
 
-    fn on_load(&mut self, ctx: &'a mut Context) -> Loop {
+    fn on_load(&mut self, ctx: &mut Context) -> Loop {
+        ctx.sounds
+            .insert("jump".into(),
+                    Chunk::from_file(Path::new("./assets/jump.wav")).unwrap());
+
         self.textures
             .insert("background".into(),
                     ctx.renderer
@@ -321,16 +336,10 @@ impl<'a> Scene<'a> for Game<'a> {
                         .load_texture(Path::new("./assets/rocks.png"))
                         .unwrap());
 
-        let font = ctx.ttf_context
-            .load_font(Path::new("./assets/font.ttf"), 128)
-            .unwrap();
-
-        self.fonts.insert("default".into(), font);
-
         Loop::Continue
     }
 
-    fn on_event(&mut self, event: Event, _ctx: &mut Context) -> Loop {
+    fn on_event(&mut self, event: Event, ctx: &mut Context) -> Loop {
         match event {
             Event::Quit { .. } => Loop::Break,
             Event::KeyDown { keycode: Some(Keycode::Space), .. } => {
@@ -338,7 +347,9 @@ impl<'a> Scene<'a> for Game<'a> {
                     self.released = false;
                     self.jumping = true;
                     self.velocity_y = -16.00;
-                    channel(1).play(&self.jump, 0).unwrap();
+                    channel(2)
+                        .play(ctx.sounds.get("jump".into()).unwrap(), 0)
+                        .unwrap();
                 }
                 Loop::Continue
             }
@@ -358,19 +369,19 @@ impl<'a> Scene<'a> for Game<'a> {
         ctx.renderer.set_draw_color(Color::RGB(255, 255, 255));
         ctx.renderer.clear();
 
-
         self.add_obstacle(&mut ctx);
         self.physics(&mut ctx);
         self.draw_montains(&mut ctx);
         self.draw_forest(&mut ctx);
         self.draw_ground(&mut ctx);
         self.draw_obstacles(&mut ctx);
+        self.draw_points(&mut ctx);
 
         if self.is_colliding() {
             return Loop::Break;
         }
 
-        if (self.jumping) {
+        if self.jumping {
             self.draw_jump(&mut ctx);
         } else {
             self.draw_player(&mut ctx);

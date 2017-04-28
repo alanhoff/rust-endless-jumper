@@ -1,16 +1,17 @@
+#![allow(unused_assignments)]
 extern crate sdl2;
 extern crate rand;
 
 use std::collections::HashMap;
-use std::time::Instant;
+use std::time::{Instant, Duration};
 use std::thread;
 
 use self::sdl2::event::Event;
 use self::sdl2::render::Renderer;
-use self::sdl2::EventPump;
 use self::sdl2::image::{INIT_PNG, INIT_JPG};
-use self::sdl2::mixer::{INIT_FLAC, AUDIO_S16LSB};
+use self::sdl2::mixer::{INIT_FLAC, AUDIO_S16LSB, Chunk};
 use self::rand::ThreadRng;
+use self::sdl2::ttf::{Font, Sdl2TtfContext};
 
 use helpers;
 use config;
@@ -26,22 +27,30 @@ pub struct Context<'a> {
     pub renderer: Renderer<'a>,
     pub timer: Instant,
     pub thread_rng: ThreadRng,
-    pub ttf_context: sdl2::ttf::Sdl2TtfContext,
+    pub ttf_context: &'a Sdl2TtfContext,
+    pub fonts: HashMap<String, Font<'a, 'static>>,
+    pub sounds: HashMap<String, Chunk>,
 }
 
 
-pub struct Engine<'a> {
-    scenarios: HashMap<String, Box<Scene<'a>>>,
-    event_pump: EventPump,
-    context: Context<'a>,
+pub struct Engine {}
+
+pub struct Stage<'a> {
+    pub scenarios: HashMap<String, Box<Scene + 'a>>,
 }
 
-impl<'a> Engine<'a> {
-    pub fn add_scenario<P: Scene<'a>>(&mut self, name: String, scene: P) {
-        self.scenarios.insert(name, Box::new(scene));
+impl<'a> Stage<'a> {
+    pub fn new() -> Self {
+        Self { scenarios: HashMap::new() }
     }
 
-    pub fn new() -> Self {
+    pub fn add_scene<S: Scene + 'a>(&mut self, name: String) {
+        self.scenarios.insert(name, Box::new(S::new()));
+    }
+}
+
+impl<'a> Engine {
+    pub fn run(inital_scene: String, mut stage: Stage) {
         let sdl_context = sdl2::init().unwrap();
         let video_subsystem = sdl_context.video().unwrap();
         let ttf_context = sdl2::ttf::init().unwrap();
@@ -64,7 +73,7 @@ impl<'a> Engine<'a> {
             .build()
             .unwrap();
 
-        let event_pump = sdl_context.event_pump().unwrap();
+        let mut event_pump = sdl_context.event_pump().unwrap();
 
         // Setup the mixer
         sdl_context.audio().unwrap();
@@ -72,105 +81,103 @@ impl<'a> Engine<'a> {
         sdl2::mixer::open_audio(44100, AUDIO_S16LSB, 2, 1024).unwrap();
         sdl2::mixer::allocate_channels(16);
 
-        Engine {
-            event_pump: event_pump,
-            scenarios: HashMap::new(),
-            context: Context {
-                renderer: renderer,
-                sdl2_context: sdl_context,
-                timer: Instant::now(),
-                thread_rng: rand::thread_rng(),
-                ttf_context: ttf_context,
-            },
+        let mut context = Context {
+            renderer: renderer,
+            sdl2_context: sdl_context,
+            timer: Instant::now(),
+            thread_rng: rand::thread_rng(),
+            ttf_context: &ttf_context,
+            fonts: HashMap::new(),
+            sounds: HashMap::new(),
+        };
+
+        {
+            let mut scene_name = inital_scene;
+            let mut should_load = true;
+            let mut should_unload = false;
+            let mut timer = Instant::now();
+
+            'running: loop {
+                let elapsed = helpers::get_milliseconds(&timer.elapsed());
+                if elapsed < 15 {
+                    thread::sleep(Duration::from_millis(15 - elapsed));
+                }
+
+                timer = Instant::now();
+                let ref mut scene = stage.scenarios.get_mut(&scene_name).unwrap();
+
+                if should_load {
+                    should_load = false;
+                    match scene.on_load(&mut context) {
+                        Loop::Break => {
+                            should_unload = true;
+                            break 'running;
+                        }
+                        Loop::GoToScene(name) => {
+                            scene_name = name;
+                            should_load = true;
+                            should_unload = true;
+                        }
+                        _ => {}
+                    }
+                }
+
+                for event in event_pump.poll_iter() {
+                    match scene.on_event(event, &mut context) {
+                        Loop::Break => {
+                            should_unload = true;
+                            break 'running;
+                        }
+                        Loop::GoToScene(name) => {
+                            scene_name = name;
+                            should_load = true;
+                            should_unload = true;
+                        }
+                        _ => {}
+                    }
+                }
+
+                match scene.on_tick(&mut context) {
+                    Loop::Break => {
+                        should_unload = true;
+                        break 'running;
+                    }
+                    Loop::GoToScene(name) => {
+                        scene_name = name;
+                        should_load = true;
+                        should_unload = true;
+                    }
+                    _ => {}
+                }
+
+
+                if should_unload {
+                    should_unload = false;
+
+                    match scene.on_unload(&mut context) {
+                        Loop::Break => {
+                            should_unload = true;
+                            break 'running;
+                        }
+                        Loop::GoToScene(name) => {
+                            scene_name = name;
+                            should_load = true;
+                        }
+                        _ => {}
+                    }
+                }
+            }
+
+            let ref mut scene = stage.scenarios.get_mut(&scene_name).unwrap();
+            scene.on_unload(&mut context);
         }
-    }
-
-    pub fn run(&'a mut self, inital_scene: String) {
-        let mut scene_name = inital_scene;
-
-        let mut should_load = true;
-        let mut should_unload = false;
-        let mut timer = Instant::now();
-
-        'running: loop {
-            let elapsed = helpers::get_milliseconds(&timer.elapsed());
-            if (elapsed < 15) {
-                thread::sleep_ms((15 - elapsed) as u32);
-            }
-
-            timer = Instant::now();
-            let mut scene = self.scenarios.get_mut(&scene_name).unwrap();
-
-            if should_load {
-                should_load = false;
-
-                match scene.on_load(&mut self.context) {
-                    Loop::Break => {
-                        should_unload = true;
-                        break 'running;
-                    }
-                    Loop::GoToScene(name) => {
-                        scene_name = name;
-                        should_load = true;
-                        should_unload = true;
-                    }
-                    _ => {}
-                }
-            }
-
-            for event in self.event_pump.poll_iter() {
-                match scene.on_event(event, &mut self.context) {
-                    Loop::Break => {
-                        should_unload = true;
-                        break 'running;
-                    }
-                    Loop::GoToScene(name) => {
-                        scene_name = name;
-                        should_load = true;
-                        should_unload = true;
-                    }
-                    _ => {}
-                }
-            }
-
-            match scene.on_tick(&mut self.context) {
-                Loop::Break => {
-                    should_unload = true;
-                    break 'running;
-                }
-                Loop::GoToScene(name) => {
-                    scene_name = name;
-                    should_load = true;
-                    should_unload = true;
-                }
-                _ => {}
-            }
-
-
-            if should_unload {
-                should_unload = false;
-
-                match scene.on_unload(&mut self.context) {
-                    Loop::Break => {
-                        should_unload = true;
-                        break 'running;
-                    }
-                    Loop::GoToScene(name) => {
-                        scene_name = name;
-                        should_load = true;
-                    }
-                    _ => {}
-                }
-            }
-        }
-
-        let mut scene = self.scenarios.get_mut(&scene_name).unwrap();
-        scene.on_unload(&mut self.context);
     }
 }
 
-pub trait Scene<'a> {
-    fn on_load(&mut self, &'a mut Context) -> Loop {
+pub trait Scene {
+    fn new() -> Self where Self: Sized;
+
+    fn on_load(&mut self, &mut Context) -> Loop {
         Loop::Continue
     }
     fn on_unload(&mut self, &mut Context) -> Loop {
