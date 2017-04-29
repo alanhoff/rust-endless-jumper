@@ -2,6 +2,7 @@
 extern crate sdl2;
 extern crate rand;
 
+use std::fmt;
 use std::collections::HashMap;
 use std::time::{Instant, Duration};
 use std::thread;
@@ -22,6 +23,20 @@ pub enum Loop {
     GoToScene(String),
 }
 
+pub enum RegistryItem {
+    Number(usize),
+}
+
+impl fmt::Display for RegistryItem {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f,
+               "{}",
+               match self {
+                   &RegistryItem::Number(ref number) => number,
+               })
+    }
+}
+
 pub struct Context<'a> {
     pub sdl2_context: sdl2::Sdl,
     pub renderer: Renderer<'a>,
@@ -30,6 +45,7 @@ pub struct Context<'a> {
     pub ttf_context: &'a Sdl2TtfContext,
     pub fonts: HashMap<String, Font<'a, 'static>>,
     pub sounds: HashMap<String, Chunk>,
+    pub registry: HashMap<String, RegistryItem>,
 }
 
 
@@ -89,6 +105,7 @@ impl<'a> Engine {
             ttf_context: &ttf_context,
             fonts: HashMap::new(),
             sounds: HashMap::new(),
+            registry: HashMap::new(),
         };
 
         {

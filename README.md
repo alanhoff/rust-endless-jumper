@@ -1,12 +1,11 @@
 # Endless Jumper
 
+![ScreenShot](https://raw.github.com/alanhoff/rust-endless-jumper/master/assets/screenshot.png)
+
+
+### Instructions
+
 ```bash
-rustc --version
-> rustc 1.18.0-nightly (2564711e8 2017-04-04)
-
-cargo --version
-> cargo 0.19.0-nightly (4e95c6b41 2017-03-23)
-
-// To run the game just type
+# Make sure you have SDL2, SDL2 TTF, SDL2 GFX and SDL2 Mixer installed in your system
 cargo run
 ```

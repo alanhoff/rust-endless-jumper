@@ -87,7 +87,10 @@ impl<'a> Scene for Menu {
 
         self.textures.insert("exit".into(), exit_texture);
 
-        channel(0)
+        let channel = channel(0);
+
+        channel.set_volume(80);
+        channel
             .play(ctx.sounds.get("music").unwrap(), -1)
             .unwrap();
 

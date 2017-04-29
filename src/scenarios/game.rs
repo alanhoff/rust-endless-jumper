@@ -15,7 +15,7 @@ use self::sdl2::mixer::{Chunk, channel};
 use self::sdl2::ttf::STYLE_BOLD;
 
 use helpers;
-use engine::{Scene, Context, Loop};
+use engine::{Scene, Context, Loop, RegistryItem};
 
 const MONTAINS_SCALE: u32 = 3;
 const GROUND_SCALE: u32 = 2;
@@ -61,7 +61,7 @@ impl Game {
             .unwrap();
     }
 
-    fn is_colliding(&mut self) -> bool {
+    fn is_colliding(&mut self, ctx: &mut Context) -> bool {
         let mut colliding = false;
 
         for mut obstacle in self.obstacles.iter_mut() {
@@ -82,6 +82,10 @@ impl Game {
             if rock_x > 570.0 && obstacle.pending_point {
                 obstacle.pending_point = false;
                 self.points += 1;
+
+                ctx.registry
+                    .insert("points".into(),
+                            RegistryItem::Number(self.points.clone() as usize));
             }
 
         }
@@ -102,7 +106,7 @@ impl Game {
                           position_x: -80.0,
                           timer: Instant::now(),
                           rocks: rand::sample(&mut ctx.thread_rng,
-                                              (1..13).collect::<Vec<u32>>(),
+                                              (1..12).collect::<Vec<u32>>(),
                                               1)
                                   .remove(0),
                           pending_point: true,
@@ -302,6 +306,12 @@ impl Scene for Game {
     }
 
     fn on_load(&mut self, ctx: &mut Context) -> Loop {
+        self.points = 0;
+
+        ctx.registry
+            .insert("points".into(),
+                    RegistryItem::Number(self.points.clone() as usize));
+
         ctx.sounds
             .insert("jump".into(),
                     Chunk::from_file(Path::new("./assets/jump.wav")).unwrap());
@@ -377,8 +387,8 @@ impl Scene for Game {
         self.draw_obstacles(&mut ctx);
         self.draw_points(&mut ctx);
 
-        if self.is_colliding() {
-            return Loop::Break;
+        if self.is_colliding(&mut ctx) {
+            return Loop::GoToScene("game_over".into());
         }
 
         if self.jumping {
